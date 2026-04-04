@@ -249,58 +249,79 @@ print(f"✅ {schemes_sdf.count()} schemes written to {SCHEMES_TABLE}")
 
 # COMMAND ----------
 
-# MAGIC %md ## Step 3: SparkML TF-IDF Pipeline
+# MAGIC %md ## Step 3: TF-IDF Features (Spark SQL/DataFrame)
 
 # COMMAND ----------
 
-from pyspark.ml.feature import Tokenizer, HashingTF, IDF, VectorAssembler
-from pyspark.ml import Pipeline
 from pyspark.sql import functions as F
+from pyspark.sql.window import Window
 
 # Build a combined text column for TF-IDF
 schemes_sdf_loaded = spark.table(SCHEMES_TABLE)
 schemes_sdf_text = schemes_sdf_loaded.withColumn(
     "scheme_text",
     F.concat_ws(" ",
-        F.col("scheme_name"),
-        F.col("description"),
-        F.col("eligibility_raw"),
-        F.col("benefits"),
-        F.col("occupation_tags"),
-        F.col("state"),
-        F.col("caste_category"),
+        F.coalesce(F.col("scheme_name"), F.lit("")),
+        F.coalesce(F.col("description"), F.lit("")),
+        F.coalesce(F.col("eligibility_raw"), F.lit("")),
+        F.coalesce(F.col("benefits"), F.lit("")),
+        F.coalesce(F.col("occupation_tags"), F.lit("")),
+        F.coalesce(F.col("state"), F.lit("")),
+        F.coalesce(F.col("caste_category"), F.lit("")),
     )
 )
 
-# SparkML Pipeline: Tokenizer → HashingTF → IDF
-tokenizer = Tokenizer(inputCol="scheme_text", outputCol="tokens")
-hashing_tf = HashingTF(inputCol="tokens", outputCol="raw_features", numFeatures=1024)
-idf = IDF(inputCol="raw_features", outputCol="tfidf_features", minDocFreq=1)
+# Databricks shared/access-restricted clusters may block SparkML constructors via Py4J whitelist.
+# Compute TF-IDF with Spark SQL/DataFrame APIs to avoid blocked JVM constructor calls.
+cleaned = schemes_sdf_text.withColumn(
+    "clean_text",
+    F.trim(F.regexp_replace(F.lower(F.col("scheme_text")), r"[^a-z0-9]+", " ")),
+)
 
-pipeline = Pipeline(stages=[tokenizer, hashing_tf, idf])
-model = pipeline.fit(schemes_sdf_text)
-print("✅ SparkML TF-IDF pipeline fitted")
+tokens = cleaned.withColumn("term", F.explode(F.split(F.col("clean_text"), r"\\s+"))).where(F.length("term") > 1)
 
-# Transform and save feature vectors
-transformed = model.transform(schemes_sdf_text)
+tf = (
+    tokens.groupBy("scheme_id", "scheme_name", "scheme_text", "term")
+    .agg(F.count(F.lit(1)).alias("tf"))
+)
+
+df = tf.groupBy("term").agg(F.countDistinct("scheme_id").alias("df"))
+num_docs = schemes_sdf_text.select("scheme_id").distinct().count()
+
+tfidf = (
+    tf.join(df, on="term", how="left")
+    .withColumn(
+        "idf",
+        F.log((F.lit(float(num_docs)) + F.lit(1.0)) / (F.col("df") + F.lit(1.0))) + F.lit(1.0),
+    )
+    .withColumn("tfidf", F.col("tf") * F.col("idf"))
+)
+
+# Persist only metadata + lightweight top terms summary for Delta compatibility.
+top_terms = (
+    tfidf.withColumn("term_rank", F.row_number().over(Window.partitionBy("scheme_id").orderBy(F.desc("tfidf"), F.asc("term"))))
+    .where(F.col("term_rank") <= 20)
+    .groupBy("scheme_id")
+    .agg(F.concat_ws(", ", F.collect_list(F.col("term"))).alias("top_terms"))
+)
+
+transformed = schemes_sdf_text.join(top_terms, on="scheme_id", how="left")
+model = None
+print("✅ TF-IDF features computed without SparkML constructors")
 
 # Save TF-IDF scores table (drop the vector column — store as string for Delta compatibility)
 (
-    transformed.select("scheme_id", "scheme_name", "scheme_text")
+    transformed.select("scheme_id", "scheme_name", "scheme_text", "top_terms")
     .write
     .format("delta")
     .mode("overwrite")
     .option("overwriteSchema", "true")
     .saveAsTable(TFIDF_TABLE)
 )
-print(f"✅ TF-IDF metadata saved to {TFIDF_TABLE}")
+print(f"✅ TF-IDF metadata (with top terms) saved to {TFIDF_TABLE}")
 
-# Save the Pipeline model to UC Volume
-try:
-    model.write().overwrite().save(MODEL_PATH)
-    print(f"✅ SparkML Pipeline model saved to {MODEL_PATH}")
-except Exception as e:
-    print(f"⚠️  Could not save model to Volume: {e}")
+# No SparkML pipeline model is created in this mode.
+print("ℹ️  Skipping SparkML model save (whitelist-safe TF-IDF mode)")
 
 # COMMAND ----------
 
@@ -313,21 +334,12 @@ try:
     import mlflow.spark
 
     with mlflow.start_run(run_name="scheme_tfidf_training"):
-        mlflow.log_param("num_features", 1024)
+        mlflow.log_param("tfidf_impl", "spark_sql_dataframe")
         mlflow.log_param("num_schemes", schemes_sdf.count())
         mlflow.log_param("min_doc_freq", 1)
-        mlflow.spark.log_model(model, "scheme-tfidf-pipeline")
+        mlflow.log_param("sparkml_model_logging", "skipped_py4j_whitelist")
         run_id = mlflow.active_run().info.run_id
-        print(f"✅ MLflow: logged TF-IDF model (run_id={run_id})")
-
-        try:
-            mlflow.register_model(
-                f"runs:/{run_id}/scheme-tfidf-pipeline",
-                "nyaya-sahayak-scheme-tfidf",
-            )
-            print("✅ MLflow: model registered as 'nyaya-sahayak-scheme-tfidf'")
-        except Exception as e:
-            print(f"⚠️  Model registration failed: {e}")
+        print(f"✅ MLflow: logged TF-IDF run metadata (run_id={run_id})")
 except Exception as e:
     print(f"⚠️  MLflow logging failed (non-fatal): {e}")
 
