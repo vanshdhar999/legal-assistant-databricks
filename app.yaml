@@ -1,0 +1,23 @@
+# Databricks Apps runtime — must live at the repository root.
+# https://docs.databricks.com/aws/en/dev-tools/databricks-apps/app-runtime
+#
+# Without this file, Python apps default to: python app.py (this repo uses app/main.py).
+command: ["python", "app/main.py"]
+
+env:
+  # SARVAM_API_KEY is loaded from Databricks secret scope at startup via SDK
+  # (see _load_secrets_from_scope in app/main.py)
+  - name: "LLM_OPENAI_BASE_URL"
+    value: "https://dbc-e9c57d38-1f49.cloud.databricks.com/serving-endpoints"
+  - name: "LLM_MODEL"
+    value: "databricks-llama-4-maverick"
+  # Vector Search (primary backend, falls back to FAISS if unavailable)
+  - name: "NYAYA_RETRIEVAL_BACKEND"
+    value: "vector_search"
+  - name: "NYAYA_VS_ENDPOINT_NAME"
+    value: "nyaya_vs_endpoint"
+  - name: "NYAYA_VS_INDEX_NAME"
+    value: "workspace.india_legal.legal_rag_corpus_index"
+  # FAISS fallback index location
+  - name: "NYAYA_INDEX_DIR"
+    value: "/Volumes/workspace/india_legal/legal_files/nyaya_index"
