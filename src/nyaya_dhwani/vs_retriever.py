@@ -36,21 +36,34 @@ class VectorSearchRetriever:
                      self._endpoint_name, self._index_name)
         return self._index
 
-    def search(self, query: str, k: int = 7) -> pd.DataFrame:
-        """Similarity search with optional metadata filters for section references."""
+    def search(
+        self,
+        query: str,
+        k: int = 7,
+        doc_type_filter: str | None = None,
+    ) -> pd.DataFrame:
+        """Similarity search with optional metadata filters for section references.
+
+        Args:
+            doc_type_filter: When provided, restricts ALL results to this doc_type
+                (overrides the automatic law_mapping filter for section references).
+        """
         client = self._get_client()
         index_name = self._index_name
 
-        # Detect IPC/BNS section references for targeted filtering.
-        refs = detect_section_references(query)
-        filters = None
-        if refs:
-            filters = {"doc_type": "law_mapping"}
+        # If caller requested a specific doc_type, use that directly.
+        if doc_type_filter:
+            filters = {"doc_type": doc_type_filter}
+        else:
+            # Detect IPC/BNS section references for targeted filtering.
+            refs = detect_section_references(query)
+            filters = {"doc_type": "law_mapping"} if refs else None
 
         try:
-            # First: if we have section references, do a filtered search for mappings.
+            # First: if we have section references (and no explicit doc_type_filter),
+            # do a filtered search for law_mapping chunks.
             mapping_rows = []
-            if filters:
+            if filters and not doc_type_filter:
                 try:
                     mapping_resp = client.query_index(
                         index_name=index_name,
@@ -63,13 +76,16 @@ class VectorSearchRetriever:
                 except Exception:
                     logger.debug("Filtered VS search failed, continuing with unfiltered", exc_info=True)
 
-            # Main unfiltered search.
-            resp = client.query_index(
+            # Main search (filtered by doc_type if requested, otherwise unfiltered).
+            main_query_kwargs: dict = dict(
                 index_name=index_name,
                 columns=_RESULT_COLUMNS,
                 query_text=query,
                 num_results=k,
             )
+            if doc_type_filter:
+                main_query_kwargs["filters_json"] = json.dumps({"doc_type": doc_type_filter})
+            resp = client.query_index(**main_query_kwargs)
             main_rows = _response_to_rows(resp)
 
             # Merge: mapping results first, then main results (deduplicated).

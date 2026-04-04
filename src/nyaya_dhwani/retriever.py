@@ -28,8 +28,20 @@ logger = logging.getLogger(__name__)
 class Retriever(Protocol):
     """Uniform search interface for RAG retrieval backends."""
 
-    def search(self, query: str, k: int = 7) -> pd.DataFrame:
+    def search(
+        self,
+        query: str,
+        k: int = 7,
+        doc_type_filter: str | None = None,
+    ) -> pd.DataFrame:
         """Return top-k chunks as a DataFrame.
+
+        Args:
+            query: Natural-language search query.
+            k: Number of results to return.
+            doc_type_filter: Optional ``doc_type`` value to restrict results to a
+                single document category (e.g. ``"criminal_law"``, ``"government_scheme"``,
+                ``"constitution"``). ``None`` means no filter.
 
         Expected columns: text, title, source, doc_type, score, rank.
         """
@@ -63,7 +75,12 @@ class FaissRetriever:
         )
         logger.info("FaissRetriever: loaded %d vectors, model %s", m.num_vectors, m.embedding_model)
 
-    def search(self, query: str, k: int = 7) -> pd.DataFrame:
+    def search(
+        self,
+        query: str,
+        k: int = 7,
+        doc_type_filter: str | None = None,
+    ) -> pd.DataFrame:
         self._load()
         assert self._ci is not None and self._embedder is not None
         emb = self._embedder.encode([query.strip()])
@@ -71,7 +88,12 @@ class FaissRetriever:
 
         # Apply keyword boosting for IPC/BNS section references.
         from nyaya_dhwani.keyword_boost import boost_with_keywords
-        return boost_with_keywords(query, semantic_df, self._ci.chunks, k=k)
+        result = boost_with_keywords(query, semantic_df, self._ci.chunks, k=k)
+
+        # Optional post-filter by doc_type.
+        if doc_type_filter and "doc_type" in result.columns:
+            result = result[result["doc_type"] == doc_type_filter].reset_index(drop=True)
+        return result
 
 
 # ---------------------------------------------------------------------------
@@ -85,15 +107,20 @@ class FallbackRetriever:
         self._primary = primary
         self._fallback = fallback
 
-    def search(self, query: str, k: int = 7) -> pd.DataFrame:
+    def search(
+        self,
+        query: str,
+        k: int = 7,
+        doc_type_filter: str | None = None,
+    ) -> pd.DataFrame:
         try:
-            result = self._primary.search(query, k)
+            result = self._primary.search(query, k, doc_type_filter=doc_type_filter)
             if result is not None and not result.empty:
                 return result
             logger.warning("Primary retriever returned empty, falling back")
         except Exception:
             logger.warning("Primary retriever failed, falling back", exc_info=True)
-        return self._fallback.search(query, k)
+        return self._fallback.search(query, k, doc_type_filter=doc_type_filter)
 
 
 # ---------------------------------------------------------------------------

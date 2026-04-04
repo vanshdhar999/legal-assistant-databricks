@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python3:*)",
+      "Bash(python3.11:*)",
+      "Bash(ls -la src/nyaya_dhwani/*.py)",
+      "Bash(ls -la notebooks/0[2-5]_*.py)"
+    ]
+  }
+}

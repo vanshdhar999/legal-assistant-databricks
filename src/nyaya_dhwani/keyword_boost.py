@@ -23,6 +23,12 @@ _SECTION_RE = re.compile(
     re.IGNORECASE | re.VERBOSE,
 )
 
+# Patterns: "Article 21", "Art. 14", "Article 370 of the Constitution"
+_ARTICLE_RE = re.compile(
+    r"Art(?:icle|\.)\s+(\d+(?:[A-Z])?)",
+    re.IGNORECASE,
+)
+
 
 def detect_section_references(query: str) -> list[tuple[str, str]]:
     """Extract ``(act, section_number)`` pairs from a query string.
@@ -37,6 +43,17 @@ def detect_section_references(query: str) -> list[tuple[str, str]]:
         if act and num:
             refs.append((act, num))
     return refs
+
+
+def detect_article_references(query: str) -> list[str]:
+    """Extract Constitution article numbers from a query string.
+
+    >>> detect_article_references("Is Article 21 applicable here?")
+    ['21']
+    >>> detect_article_references("Art. 370 and Article 35A")
+    ['370', '35A']
+    """
+    return [m.group(1) for m in _ARTICLE_RE.finditer(query)]
 
 
 def boost_with_keywords(
@@ -54,7 +71,9 @@ def boost_with_keywords(
     4. Return at most *k* rows, re-ranked.
     """
     refs = detect_section_references(query)
-    if not refs or all_chunks is None or all_chunks.empty:
+    article_refs = detect_article_references(query)
+
+    if (not refs and not article_refs) or all_chunks is None or all_chunks.empty:
         return semantic_results.head(k)
 
     # Build regex that matches any of the detected section numbers in chunk text.
@@ -65,6 +84,10 @@ def boost_with_keywords(
         patterns.append(rf"\b{act}\s+(?:Section\s+)?{escaped}\b")
         # Also match the reverse mapping direction, e.g. "replaces IPC 413"
         patterns.append(rf"replaces\s+{act}\s+{escaped}\b")
+    # Constitution article references
+    for art_num in article_refs:
+        escaped = re.escape(art_num)
+        patterns.append(rf"Article\s+{escaped}\b")
 
     combined = "|".join(patterns)
     mask = all_chunks["text"].str.contains(combined, case=False, regex=True, na=False)
