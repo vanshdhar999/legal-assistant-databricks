@@ -1,7 +1,7 @@
-# Nyaya Sahayak — Feature Expansion Summary
+# MULIA — Feature Expansion Summary
 
 > **Original project:** Nyaya Dhwani (multilingual BNS/IPC RAG chatbot)
-> **Expanded to:** Nyaya Sahayak — Governance & Access to Justice
+> **Expanded to:** MULIA — Multilingual Legal Information Assistant
 
 ---
 
@@ -110,7 +110,7 @@
 - The law_mapping pre-filter for section references is skipped when `doc_type_filter` is explicitly set
 
 ### `app/main.py`
-- Renamed app: **Nyaya Dhwani → Nyaya Sahayak**
+- Renamed app: **Nyaya Dhwani → MULIA**
 - Restructured from single chat column to `gr.Tabs` with 5 tabs
 - Added graceful `try/except` imports for all new feature modules (app works even if modules fail to load)
 - Added `RAGQueryLogger` wrapping around `run_turn()` and all new turn handlers

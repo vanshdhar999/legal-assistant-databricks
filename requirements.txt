@@ -1,6 +1,6 @@
 # Databricks Apps: pip install -r requirements.txt
 # Same pins as the Databricks Gradio template (gradio + huggingface_hub + pandas).
-# cache-bust: 2026-04-05 — Nyaya Sahayak feature expansion
+# cache-bust: 2026-04-05 — MULIA feature expansion
 gradio~=4.44.0
 gradio-client==1.3.0
 huggingface-hub~=0.35.3

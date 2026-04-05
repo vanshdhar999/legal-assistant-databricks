@@ -33,7 +33,7 @@ logger = logging.getLogger(__name__)
 # doc_types that contain BNS / IPC criminal law content
 _BNS_DOC_TYPES = frozenset({"criminal_law", "law_mapping", "criminal_law_ipc"})
 
-BNS_SYSTEM_PROMPT = """You are Nyaya Sahayak, an expert legal assistant specialising in the
+BNS_SYSTEM_PROMPT = """You are MULIA (Multilingual Legal Information Assistant), an expert legal assistant specialising in the
 Bharatiya Nyaya Sanhita (BNS) 2023 and its predecessor, the Indian Penal Code (IPC) 1860.
 
 For each question, structure your answer with these numbered sections:
