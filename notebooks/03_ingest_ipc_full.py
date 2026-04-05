@@ -2,7 +2,7 @@
 # MAGIC %md
 # MAGIC # Notebook 03: IPC Full Text Ingestion
 # MAGIC
-# MAGIC Downloads the complete Indian Penal Code (IPC 1860) section text from HuggingFace,
+# MAGIC Loads Indian Penal Code (IPC 1860) section text from local CSV sources,
 # MAGIC cross-references with the existing `bns_ipc_mapping` table, and upserts into
 # MAGIC `legal_rag_corpus` with `doc_type = "criminal_law_ipc"`.
 # MAGIC
@@ -27,7 +27,7 @@ if _src not in sys.path:
 
 subprocess.check_call([
     sys.executable, "-m", "pip", "install", "-q",
-    "datasets>=2.14.0", "pandas>=2.0,<3",
+    "pandas>=2.0,<3",
 ])
 print("✅ dependencies installed")
 
@@ -41,34 +41,69 @@ CORPUS_TABLE = f"{CATALOG}.{SCHEMA}.legal_rag_corpus"
 
 # COMMAND ----------
 
-# MAGIC %md ## Step 1: Load IPC section text
+# MAGIC %md ## Step 1: Load IPC section text from CSV (local-first)
 
 # COMMAND ----------
 
 import pandas as pd
-
-_HF_IPC_DATASETS = [
-    # Try multiple possible HuggingFace dataset names
-    ("nandhakumarg/ipc-sections", "train"),
-    ("Exploration-Lab/Indian-Law-Cases", "train"),
-    ("legal-india/ipc", "train"),
-]
+from pathlib import Path
 
 ipc_df = None
-for hf_name, split in _HF_IPC_DATASETS:
-    try:
-        from datasets import load_dataset
-        ds = load_dataset(hf_name, split=split, trust_remote_code=True)
-        ipc_df = ds.to_pandas()
-        print(f"✅ Loaded {hf_name}: {len(ipc_df)} rows, columns: {list(ipc_df.columns)}")
-        break
-    except Exception as e:
-        print(f"⚠️  {hf_name}: {e}")
+
+# Prefer local assets in repo/volume/workspace over remote loaders.
+_CSV_CANDIDATES = [
+    Path("/Volumes/workspace/india_legal/legal_files/my_gov_schemes.csv"),
+    Path(REPO_ROOT) / "IPC.csv",
+    Path("/Workspace") / "IPC.csv",
+    Path("IPC.csv"),
+]
+
+def _load_ipc_from_csv(csv_path: Path) -> pd.DataFrame:
+    df = pd.read_csv(csv_path)
+    print(f"✅ Loaded IPC CSV: {csv_path} ({len(df)} rows)")
+
+    if "URL" in df.columns:
+        extracted = (
+            df["URL"]
+            .astype(str)
+            .str.extract(r"section-([0-9A-Za-z]+)")[0]
+            .str.strip()
+        )
+        if "section_number" not in df.columns:
+            df["section_number"] = extracted
+        else:
+            df["section_number"] = (
+                df["section_number"]
+                .astype(str)
+                .str.strip()
+                .mask(lambda s: s.eq("") | s.eq("nan"), extracted)
+            )
+
+    if "section_title" not in df.columns:
+        if "Offense" in df.columns:
+            df["section_title"] = df["Offense"].astype(str)
+        else:
+            df["section_title"] = ""
+
+    if "section_text" not in df.columns:
+        if "Description" in df.columns:
+            df["section_text"] = df["Description"].astype(str)
+        else:
+            df["section_text"] = ""
+
+    return df
+
+for c in _CSV_CANDIDATES:
+    if c.exists():
+        try:
+            ipc_df = _load_ipc_from_csv(c)
+            break
+        except Exception as e:
+            print(f"⚠️  CSV load failed for {c}: {e}")
 
 if ipc_df is None:
-    # Fallback: use the bns_ipc_mapping table which contains IPC section numbers
-    # and construct basic entries for commonly referenced sections
-    print("⚠️  HuggingFace IPC datasets unavailable — building from bns_ipc_mapping stub")
+    # Final fallback: use the mapping table and a small set of high-frequency IPC sections.
+    print("⚠️  No usable IPC CSV source found — building minimal stub dataset")
     try:
         mapping_pdf = spark.table(MAPPING_TABLE).toPandas()
         ipc_sections_in_mapping = mapping_pdf["ipc_section"].dropna().unique().tolist()
@@ -98,15 +133,18 @@ if ipc_df is None:
     ipc_df = pd.DataFrame(rows)
     print(f"  Using {len(ipc_df)} hardcoded IPC section stubs")
 
-# Normalise column names
+# Normalise column names from heterogeneous CSV representations.
 def _normalise_ipc_df(df: pd.DataFrame) -> pd.DataFrame:
     col_map = {
         "section_number": "section_number",
         "Section": "section_number",
         "section": "section_number",
+        "IPC Section": "section_number",
         "section_title": "section_title",
         "Title": "section_title",
         "title": "section_title",
+        "Offense": "section_title",
+        "offense": "section_title",
         "section_text": "section_text",
         "Description": "section_text",
         "description": "section_text",
@@ -122,7 +160,9 @@ def _normalise_ipc_df(df: pd.DataFrame) -> pd.DataFrame:
 ipc_df = _normalise_ipc_df(ipc_df)
 ipc_df["section_number"] = ipc_df["section_number"].astype(str).str.strip()
 ipc_df["section_text"] = ipc_df["section_text"].fillna("").str.strip()
+ipc_df = ipc_df[ipc_df["section_number"].str.len() > 0]
 ipc_df = ipc_df[ipc_df["section_text"].str.len() > 5].reset_index(drop=True)
+ipc_df = ipc_df.drop_duplicates(subset=["section_number"], keep="first").reset_index(drop=True)
 print(f"✅ {len(ipc_df)} IPC sections ready")
 display(ipc_df.head(3))
 
