@@ -497,40 +497,103 @@ def run_ipc_bns_compare(
 def build_app() -> gr.Blocks:
     custom_css = """
     /* Cream-white justice theme */
-    .gradio-container {
-        background: linear-gradient(180deg, #FFFDF7 0%, #F8F3E7 100%) !important;
-        color: #2B2A28 !important;
+    :root {
+        --mulia-bg-top: #FFFDF7;
+        --mulia-bg-bottom: #F8F3E7;
+        --mulia-surface: #FFFCF4;
+        --mulia-border: #E6DDC7;
+        --mulia-text: #2B2A28;
+        --mulia-muted: #4C5C73;
+        --mulia-accent: #8C6A2F;
+        --mulia-accent-strong: #7B5E29;
+        --mulia-title: #1F2F45;
+        --mulia-tab-idle: #EFE6D2;
+        --mulia-tab-hover: #E6D8BC;
+        --mulia-tab-active: #D8C7A3;
     }
+
+    .gradio-container {
+        background: linear-gradient(180deg, var(--mulia-bg-top) 0%, var(--mulia-bg-bottom) 100%) !important;
+        color: var(--mulia-text) !important;
+    }
+
+    .gradio-container,
+    .gradio-container p,
+    .gradio-container span,
+    .gradio-container label,
+    .gradio-container .prose,
+    .gradio-container .prose * {
+        color: var(--mulia-text);
+    }
+
     h1, h2, h3 {
-        color: #1F2F45 !important;
+        color: var(--mulia-title) !important;
         font-family: Georgia, "Times New Roman", serif;
         letter-spacing: 0.01em;
     }
+
     .gr-button-primary {
-        background: #8C6A2F !important;
-        border-color: #7B5E29 !important;
+        background: var(--mulia-accent) !important;
+        border-color: var(--mulia-accent-strong) !important;
         color: #FFFDF8 !important;
     }
+
     .gr-button-primary:hover {
-        background: #7B5E29 !important;
+        background: var(--mulia-accent-strong) !important;
         border-color: #6B5225 !important;
     }
+
     .gr-box, .gr-panel, .gr-form, .gradio-container .block {
-        background-color: #FFFCF4 !important;
-        border-color: #E6DDC7 !important;
+        background-color: var(--mulia-surface) !important;
+        border-color: var(--mulia-border) !important;
     }
+
     .gr-input, .gr-textbox, textarea, input, select {
         background-color: #FFFDF8 !important;
-        border-color: #DED3BA !important;
+        border-color: #D8CCB2 !important;
+        color: var(--mulia-text) !important;
     }
-    .tabs .tab-nav button.selected {
+
+    /* Tabs: enforce strong contrast across idle/hover/active states */
+    .tabs,
+    .tabs .tab-nav {
+        background: transparent !important;
+    }
+
+    .tabs .tab-nav button {
+        background: var(--mulia-tab-idle) !important;
+        color: #3A3326 !important;
+        border: 1px solid #D3C2A0 !important;
+        border-bottom: 2px solid transparent !important;
+        border-radius: 10px 10px 0 0 !important;
+        margin-right: 6px !important;
+        opacity: 1 !important;
+    }
+
+    .tabs .tab-nav button:hover {
+        background: var(--mulia-tab-hover) !important;
+        color: #2E2A20 !important;
+    }
+
+    .tabs .tab-nav button.selected,
+    .tabs .tab-nav button[aria-selected="true"] {
+        background: var(--mulia-tab-active) !important;
         color: #1F2F45 !important;
-        border-bottom: 2px solid #8C6A2F !important;
+        border-color: #BCA77F !important;
+        border-bottom: 3px solid var(--mulia-accent) !important;
     }
+
+    .tabs .tabitem,
+    .tabs .tabitem > div {
+        background: var(--mulia-surface) !important;
+        color: var(--mulia-text) !important;
+    }
+
     footer {
         font-size: 0.85rem;
-        color: #4C5C73;
+        color: var(--mulia-muted);
     }
+
     .diff-box textarea { font-family: monospace !important; font-size: 0.82rem; }
     """
 
