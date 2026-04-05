@@ -45,6 +45,7 @@ CORPUS_TABLE = f"{CATALOG}.{SCHEMA}.legal_rag_corpus"
 
 # COMMAND ----------
 
+# DBTITLE 1,Cell 5
 import pandas as pd
 from pathlib import Path
 
@@ -52,7 +53,7 @@ ipc_df = None
 
 # Prefer local assets in repo/volume/workspace over remote loaders.
 _CSV_CANDIDATES = [
-    Path("/Volumes/workspace/india_legal/legal_files/my_gov_schemes.csv"),
+    Path("/Volumes/workspace/india_legal/legal_files/IPC.csv"),
     Path(REPO_ROOT) / "IPC.csv",
     Path("/Workspace") / "IPC.csv",
     Path("IPC.csv"),
@@ -152,6 +153,8 @@ def _normalise_ipc_df(df: pd.DataFrame) -> pd.DataFrame:
         "Content": "section_text",
     }
     df = df.rename(columns={k: v for k, v in col_map.items() if k in df.columns})
+    # Remove duplicate columns that may result from renaming
+    df = df.loc[:, ~df.columns.duplicated()]
     for col in ("section_number", "section_title", "section_text"):
         if col not in df.columns:
             df[col] = ""
