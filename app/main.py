@@ -589,6 +589,27 @@ def build_app() -> gr.Blocks:
         color: var(--mulia-text) !important;
     }
 
+    /* Chat readability: white text with high-contrast bubbles */
+    .chatbot .message.user,
+    .chatbot .message.bot,
+    [data-testid="chatbot"] .message.user,
+    [data-testid="chatbot"] .message.bot {
+        background: #2F3E58 !important;
+        border: 1px solid #23324A !important;
+    }
+
+    .chatbot .message.user *,
+    .chatbot .message.bot *,
+    [data-testid="chatbot"] .message.user *,
+    [data-testid="chatbot"] .message.bot * {
+        color: #FFFFFF !important;
+    }
+
+    .chatbot .message a,
+    [data-testid="chatbot"] .message a {
+        color: #F3E6B8 !important;
+    }
+
     footer {
         font-size: 0.85rem;
         color: var(--mulia-muted);
