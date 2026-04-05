@@ -21,6 +21,7 @@ Not legal advice. This project provides general legal information only.
 - Ingest and refresh legal datasets through reproducible notebooks.
 
 ## Architecture Overview
+<img width="1440" height="1284" alt="image" src="https://github.com/user-attachments/assets/a3f8867d-ffd8-4ae0-9cad-7674310631c1" />
 
 User query flow:
 
@@ -30,6 +31,8 @@ User query flow:
 4. LLM generates grounded answer.
 5. Optional translation back to selected language.
 6. Optional TTS playback.
+<img width="1440" height="1300" alt="image" src="https://github.com/user-attachments/assets/060678f0-6606-42e3-a306-95d7c2979310" />
+
 
 Retrieval backend:
 
