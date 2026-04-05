@@ -124,6 +124,54 @@ def chat_completions(
         },
         timeout=timeout,
     )
+
+    # Databricks AI Gateway content filtering can return 400 or 422.
+    # Parse the body and return a graceful fallback instead of crashing.
+    if r.status_code in (400, 422):
+        body = {}
+        try:
+            body = r.json()
+        except Exception:
+            pass
+
+        # Databricks wraps the message in two possible shapes:
+        #   {"error": {"message": "Output blocked ..."}}   ← AI Gateway
+        #   {"message": "Output blocked ..."}              ← some proxy versions
+        err_msg = (
+            body.get("error", {}).get("message", "")
+            or body.get("message", "")
+            or r.text
+        ).lower()
+
+        _FILTER_SIGNALS = (
+            "content filtering",
+            "output blocked",
+            "content policy",
+            "safety filter",
+            "blocked by",
+        )
+        if any(sig in err_msg for sig in _FILTER_SIGNALS):
+            logger.warning("AI Gateway content filter triggered (status=%s): %s",
+                           r.status_code, err_msg[:200])
+            return {
+                "choices": [{
+                    "message": {
+                        "role": "assistant",
+                        "content": (
+                            "This query was flagged by the AI Gateway content moderation policy "
+                            "and a detailed response could not be generated.\n\n"
+                            "**Suggestions:**\n"
+                            "- Rephrase using neutral legal terminology "
+                            "(e.g. *'provisions of BNS Section 63'* instead of explicit descriptions).\n"
+                            "- Ask by section number and Act name only.\n"
+                            "- Refer to the official Gazette Notification or consult a qualified lawyer "
+                            "for this specific topic.\n\n"
+                            "*This is an automated content filter response — not a legal judgement.*"
+                        ),
+                    }
+                }]
+            }
+
     r.raise_for_status()
     return r.json()
 

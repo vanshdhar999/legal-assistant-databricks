@@ -36,6 +36,25 @@ print("✅ datasets installed")
 
 CATALOG = "workspace"
 SCHEMA = "india_legal"
+VOLUME_ROOT = f"/Volumes/{CATALOG}/{SCHEMA}/legal_files"
+
+# Point HuggingFace cache to UC Volume so downloads persist across cluster restarts
+os.environ["HF_DATASETS_CACHE"] = f"{VOLUME_ROOT}/.hf_cache"
+os.makedirs(os.environ["HF_DATASETS_CACHE"], exist_ok=True)
+
+# Load HF token from Databricks Secrets (optional — public datasets work without it)
+try:
+    from databricks.sdk import WorkspaceClient
+    _hf_token = WorkspaceClient().secrets.get_secret("nyaya-dhwani", "hf_token").value
+    if _hf_token:
+        os.environ["HF_TOKEN"] = _hf_token
+        os.environ["HUGGING_FACE_HUB_TOKEN"] = _hf_token
+        print("✅ HF_TOKEN loaded from Databricks secrets")
+except Exception as _e:
+    print(f"ℹ️  HF_TOKEN not loaded from secrets (will use unauthenticated): {_e}")
+
+# COMMAND ----------
+
 CORPUS_TABLE = f"{CATALOG}.{SCHEMA}.legal_rag_corpus"
 CONST_TABLE = f"{CATALOG}.{SCHEMA}.constitution_articles"
 
@@ -45,21 +64,34 @@ CONST_TABLE = f"{CATALOG}.{SCHEMA}.constitution_articles"
 
 # COMMAND ----------
 
-from datasets import load_dataset
+from datasets import load_dataset, DatasetDict
 import pandas as pd
 
 # Primary dataset: article-level Constitution text
 # Try multiple HuggingFace sources with fallback
 _HF_DATASETS = [
-    ("pbeukema/indian_constitution", "train"),
-    ("Hamzeha/Constitution-of-India", "train"),
+    "pbeukema/indian_constitution",
+    "Sharathhebbar24/Indian-Constitution",
+    "Hamzeha/Constitution-of-India",
 ]
 
+def _hf_to_pandas(hf_name: str) -> pd.DataFrame:
+    """Load a HuggingFace dataset by name, handling DatasetDict transparently."""
+    ds = load_dataset(hf_name, trust_remote_code=True)
+    if isinstance(ds, DatasetDict):
+        # Pick best available split: train > test > validation > first key
+        split = next(
+            (s for s in ("train", "test", "validation") if s in ds),
+            list(ds.keys())[0],
+        )
+        print(f"  DatasetDict — using split '{split}' from {list(ds.keys())}")
+        return ds[split].to_pandas()
+    return ds.to_pandas()
+
 const_df = None
-for hf_name, split in _HF_DATASETS:
+for hf_name in _HF_DATASETS:
     try:
-        ds = load_dataset(hf_name, split=split, trust_remote_code=True)
-        const_df = ds.to_pandas()
+        const_df = _hf_to_pandas(hf_name)
         print(f"✅ Loaded {hf_name}: {len(const_df)} rows — columns: {list(const_df.columns)}")
         break
     except Exception as e:
