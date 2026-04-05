@@ -171,6 +171,20 @@ Run app:
 python app/main.py
 ```
 
+One-command bootstrap (recommended):
+
+```bash
+./run_local.sh
+```
+
+Optional fast restart without reinstall:
+
+```bash
+./run_local.sh --no-install
+```
+
+The script auto-loads `.env.local` if present and validates required variables.
+
 For local LLM calls, configure environment values matching your Databricks serving endpoint.
 
 ## Reproduce Exactly (Checklist)
