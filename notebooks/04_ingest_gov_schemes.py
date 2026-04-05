@@ -315,7 +315,7 @@ def _load_pdf(path: str) -> pd.DataFrame | None:
             return None
         df = pd.DataFrame(rows)
         print(f"✅ Parsed PDF {path}: {len(df)} scheme blocks extracted")
-        return _normalise(df)
+        return _load_generic_csv_df(df)
     except Exception as e:
         print(f"⚠️  PDF load failed: {e}")
         return None
@@ -332,7 +332,7 @@ def _load_datagov() -> pd.DataFrame | None:
         if df.empty:
             return None
         print(f"✅ data.gov.in API: {len(df)} rows, columns: {list(df.columns)}")
-        return _normalise(df)
+        return _load_generic_csv_df(df)
     except Exception as e:
         print(f"⚠️  data.gov.in API failed: {e}")
         return None
@@ -364,104 +364,72 @@ def _hardcoded_stubs() -> pd.DataFrame:
         ("NSP_ST001",  "Post Matric Scholarship – ST",          "Ministry of Tribal Affairs",                  "ALL", "Scholarships for ST students studying at post-matric level.", "ST students with annual family income below Rs 2.5 lakh.", "Maintenance allowance + tuition fee reimbursement.", "15","35","ALL","250000","ST","Student"),
         ("NSP_OBC001", "Post Matric Scholarship – OBC",         "Ministry of Social Justice and Empowerment",  "ALL", "Scholarships for OBC students studying at post-matric level.", "OBC students with annual family income below Rs 1 lakh.", "Maintenance allowance and other fees as per rates.", "15","35","ALL","100000","OBC","Student"),
         ("NSP_MIN001", "Pre/Post Matric Scholarship – Minority","Ministry of Minority Affairs",                "ALL", "Scholarships for students from minority communities.", "Students from Muslim, Christian, Sikh, Buddhist, Jain, Parsi communities. Income below Rs 2 lakh.", "Tuition fee up to Rs 10,000 and maintenance allowance.", "0","35","ALL","200000","ALL","Student"),
-        ("PMSSS001",   "PM Special Scholarship – J&K",          "Ministry of Education",                       "Jammu and Kashmir", "Scholarships for students from J&K to study in reputed institutions across India.", "Students from J&K who have passed Class 12. Family income below Rs 4.5 lakh.", "Rs 30,000/year for hostel + Rs 1 lakh/year for engineering/medical courses.", "15","25","ALL","450000","ALL","Student"),
-        ("INSPIRE001", "INSPIRE Scholarship",                   "Department of Science and Technology",        "ALL", "Attract students to science education and research.", "Top 1% students in Class 12 from all boards pursuing natural/basic sciences.", "Rs 60,000/year for graduation + Rs 80,000/year for post-graduation.", "15","25","ALL","","ALL","Student"),
-        ("NMMSS001",   "National Means-cum-Merit Scholarship",  "Ministry of Education",                       "ALL", "Scholarship for meritorious students of economically weaker sections.", "Class 8 students with family income below Rs 1.5 lakh/year.", "Rs 12,000/year from Class 9 to Class 12.", "13","18","ALL","150000","ALL","Student"),
+        ("PMSSS001",   "PM Special Scholarship – J&K",          "Ministry of Education",                       "Jammu and Kashmir", "Scholarships for students from J&K to study in reputed institutions across India.", "Students from J&K who have passed Class 12. Family income below Rs 4.5 lakh.", "Rs 30,000/year for hostel + Rs 1 lakh/year for engineering/medical courses.", "17","28","ALL","450000","ALL","Student"),
+        ("INSPIRE001", "INSPIRE Scholarship (SHE)",             "Department of Science and Technology",        "ALL", "Scholarship for higher education in natural and basic sciences.", "Students with top 1% rank in Class 12 board exams in natural/basic sciences.", "Rs 80,000/year for 5 years (BSc-MSc) or 3 years (BSc).", "17","23","ALL","","ALL","Student"),
 
-        # Employment & Livelihood
-        ("NREGA001",   "MGNREGA",                               "Ministry of Rural Development",               "ALL", "Guarantees 100 days of wage employment per year to rural households.", "Any adult member of rural household willing to do unskilled manual work.", "Minimum wage for up to 100 days/year; work within 5 km radius; unemployment allowance if work not provided.", "18","99","ALL","","ALL","Labour/Worker,BPL,Farmer"),
-        ("PMEGP001",   "PM Employment Generation Programme",    "Ministry of MSME",                            "ALL", "Credit-linked subsidy for setting up new micro enterprises.", "Any individual above 18 years; SHGs, charitable trusts, cooperative societies.", "Subsidy 15–35% of project cost (up to Rs 25 lakh manufacturing, Rs 10 lakh service).", "18","55","ALL","","ALL","Self-employed"),
-        ("PMMY001",    "Pradhan Mantri MUDRA Yojana",           "Ministry of Finance",                         "ALL", "Collateral-free loans to micro/small businesses.", "Non-corporate, non-farm small/micro enterprises. No existing bank default.", "Shishu: up to Rs 50K; Kishor: Rs 50K–5L; Tarun: Rs 5L–10L at concessional rates.", "18","65","ALL","","ALL","Self-employed,Labour/Worker"),
-        ("STARTUP001", "Startup India Seed Fund",               "Department for Promotion of Industry and Internal Trade","ALL","Financial assistance for proof of concept and prototype development.", "DPIIT-recognised startups with innovative business idea, incorporated after April 2016.", "Up to Rs 20 lakh for POC; up to Rs 50 lakh for commercialisation.", "21","45","ALL","","ALL","Self-employed"),
-        ("SVNIDHI001", "PM SVANidhi",                           "Ministry of Housing and Urban Affairs",       "ALL", "Micro-credit for street vendors to restart livelihoods post-COVID.", "Urban street vendors with Certificate of Vending or Letter of Recommendation from ULB.", "Rs 10,000 → Rs 20,000 → Rs 50,000 credit on timely repayment.", "18","65","ALL","","ALL","Self-employed,Labour/Worker"),
-        ("NAPS001",    "National Apprenticeship Promotion Scheme","Ministry of Skill Development",             "ALL", "Promotes apprenticeship training to increase availability of skilled workers.", "School/college dropouts; ITI graduates; any youth wanting skill training.", "Government shares 25% of stipend (up to Rs 1,500/month) + basic training cost.", "14","35","ALL","","ALL","Student,Labour/Worker"),
+        # Employment & Skill Development
+        ("PMKVY001",   "Pradhan Mantri Kaushal Vikas Yojana",   "Ministry of Skill Development and Entrepreneurship", "ALL", "Skill development training for youth to improve employability.", "Youth aged 15-45 years who are school/college dropouts or unemployed.", "Free skill training + Rs 8,000 average reward on assessment certification.", "15","45","ALL","","ALL","Labour/Worker,Self-employed"),
+        ("MGNREGA001", "Mahatma Gandhi NREGA",                  "Ministry of Rural Development",               "ALL", "Employment guarantee scheme for rural households (100 days/year).", "Adult members of rural households willing to do unskilled manual work.", "Guaranteed 100 days of wage employment per household per year.", "18","99","ALL","","ALL","Labour/Worker"),
+        ("DDUGKY001",  "Deen Dayal Upadhyaya Grameen Kaushalya Yojana", "Ministry of Rural Development",     "ALL", "Rural youth skill training and placement program.", "Rural poor youth aged 15-35 from BPL households.", "Free residential skill training + placement assistance with min Rs 6,000/month salary.", "15","35","ALL","","ALL","Labour/Worker,Self-employed"),
 
-        # Women & Child
-        ("BBBP001",    "Beti Bachao Beti Padhao",               "Ministry of Women and Child Development",     "ALL", "Addresses declining child sex ratio; promotes education and welfare of the girl child.", "Girl children, especially in districts with low sex ratio.", "Conditional cash benefits for education, scholarship support, awareness drives.", "0","21","F","","ALL","Student"),
-        ("SSA001",     "Sukanya Samriddhi Yojana",              "Ministry of Finance",                         "ALL", "Small savings scheme for education and marriage of girl child.", "Girl child below 10 years; account opened by parent/guardian.", "High interest rate (currently ~8.2% p.a.); deposits up to Rs 1.5 lakh/year; tax exemption under 80C.", "0","10","F","","ALL",""),
-        ("WEAVERS001", "Mahila Shakti Kendra",                  "Ministry of Women and Child Development",     "ALL", "Empowers rural women through community participation and awareness.", "Rural women; focus on villages with population of 100+.", "Skill development, digital literacy, nutrition, health, legal rights awareness.", "18","60","F","","ALL","Labour/Worker,Self-employed"),
-        ("IGMSY001",   "Indira Gandhi Matritva Sahyog Yojana",  "Ministry of Women and Child Development",     "ALL", "Conditional maternity benefit for better health and nutrition of pregnant women.", "Pregnant women aged 19+ for first two live births excluding government employees.", "Rs 6,000 in installments on meeting health and immunisation conditions.", "19","45","F","","ALL","Labour/Worker,BPL"),
+        # Women & Child Development
+        ("SABLA001",   "SABLA (Kishori Shakti Yojana)",         "Ministry of Women and Child Development",     "ALL", "Empowerment program for adolescent girls (nutrition, life skills).", "Adolescent girls aged 11-18 years, especially from marginalized communities.", "Nutrition support, life skills education, vocational training, health checkups.", "11","18","F","","ALL","Student"),
+        ("ICDS001",    "Integrated Child Development Services", "Ministry of Women and Child Development",     "ALL", "Early childhood care for children under 6 years (nutrition, health, education).", "Children under 6 years, pregnant/lactating mothers from poor families.", "Supplementary nutrition, health checkups, immunization, preschool education.", "0","6","ALL","","ALL",""),
+        ("UJJWALA001", "Pradhan Mantri Ujjwala Yojana",         "Ministry of Petroleum and Natural Gas",      "ALL", "Free LPG connections to BPL households to reduce indoor air pollution.", "Women from BPL households, PMAY beneficiaries, SC/ST, forest dwellers.", "Free LPG connection (Rs 1,600 value) + first refill subsidy.", "18","99","F","","ALL","BPL"),
 
-        # Senior Citizens & Pension
-        ("IGNOAPS001", "Indira Gandhi National Old Age Pension","Ministry of Rural Development",               "ALL", "Monthly pension for destitute elderly above 60 years below poverty line.", "BPL persons aged 60 and above.", "Rs 200/month (60–79 years); Rs 500/month (80+ years) from centre + state top-up.", "60","99","ALL","","ALL","BPL"),
-        ("NFBS001",    "National Family Benefit Scheme",        "Ministry of Rural Development",               "ALL", "Lump sum family benefit on death of primary breadwinner.", "BPL households where breadwinner aged 18–64 dies due to natural or accidental causes.", "Rs 20,000 lump sum to bereaved household.", "0","99","ALL","","ALL","BPL"),
-        ("VARISHTHA001","Varishtha Pension Bima Yojana",        "Ministry of Finance",                         "ALL", "Pension scheme for citizens aged 60+ providing assured return.", "Senior citizens aged 60 years and above.", "Assured 7.4% return p.a.; pension Rs 500–Rs 5,000/month depending on purchase price.", "60","99","ALL","","ALL",""),
+        # Senior Citizens
+        ("IGNOAPS001", "Indira Gandhi National Old Age Pension", "Ministry of Rural Development",               "ALL", "Monthly pension for senior citizens living below poverty line.", "Citizens aged 60+ from BPL households.", "Rs 200-500/month (60-79 years), Rs 500-800/month (80+ years).", "60","99","ALL","","ALL","Senior Citizen"),
+        ("PMVVY001",   "Pradhan Mantri Vaya Vandana Yojana",    "Department of Financial Services",            "ALL", "Pension scheme for senior citizens (assured returns on investment).", "Citizens aged 60+ with investable surplus.", "Assured 7.4% annual return for 10 years; max investment Rs 15 lakh.", "60","99","ALL","","ALL","Senior Citizen"),
 
-        # Disability
-        ("ADIP001",    "Assistance to Disabled Persons (ADIP)","Ministry of Social Justice and Empowerment",  "ALL", "Assistive devices and aids for persons with disabilities.", "Persons with disability with income below Rs 20,000/month.", "Free/subsidised hearing aids, wheelchairs, crutches, tricycles, braille kits.", "0","99","ALL","240000","ALL","Differently-abled"),
-        ("NHFDC001",   "NHFDC Loan Scheme",                    "Ministry of Social Justice and Empowerment",  "ALL", "Concessional loans for self-employment and education of disabled persons.", "Persons with 40%+ disability.", "Loans up to Rs 50 lakh at 5–8% interest through state channelising agencies.", "18","55","ALL","","ALL","Differently-abled,Self-employed"),
+        # Differently-abled
+        ("ADIP001",    "Assistance to Disabled Persons (ADIP)",  "Ministry of Social Justice and Empowerment",  "ALL", "Aids and appliances to persons with disabilities.", "Persons with disabilities with monthly income below Rs 15,000.", "Free/subsidized aids: wheelchairs, hearing aids, crutches, prosthetics.", "0","99","ALL","180000","ALL","Differently-abled"),
+        ("DDRS001",    "Deendayal Disabled Rehabilitation Scheme", "Ministry of Social Justice and Empowerment","ALL", "Support to NGOs for rehab services for persons with disabilities.", "Persons with disabilities accessing services from registered NGOs.", "Education, vocational training, therapy, employment support via NGOs.", "0","99","ALL","","ALL","Differently-abled"),
 
         # Financial Inclusion
-        ("PMJDY001",   "Pradhan Mantri Jan Dhan Yojana",       "Ministry of Finance",                         "ALL", "Universal access to banking, savings and deposit accounts, remittance, credit.", "Any unbanked Indian citizen, especially rural and economically weaker sections.", "Zero-balance account, RuPay debit card, Rs 2 lakh accident insurance, Rs 30,000 life cover.", "18","99","ALL","","ALL","BPL,Labour/Worker,Farmer"),
-        ("PMJJBY001",  "PM Jeevan Jyoti Bima Yojana",          "Ministry of Finance",                         "ALL", "Life insurance cover for death due to any reason.", "Bank account holders aged 18–50 years.", "Rs 2 lakh life cover at Rs 330/year premium.", "18","50","ALL","","ALL",""),
-        ("PMSBY001",   "PM Suraksha Bima Yojana",              "Ministry of Finance",                         "ALL", "Accident insurance cover for death/disability.", "Bank account holders aged 18–70 years.", "Rs 2 lakh for accidental death/total disability; Rs 1 lakh partial disability at Rs 12/year.", "18","70","ALL","","ALL",""),
-        ("APY001",     "Atal Pension Yojana",                  "Ministry of Finance",                         "ALL", "Pension scheme for unorganised sector workers.", "Citizens aged 18–40 years with savings bank account; not income tax payee.", "Guaranteed pension of Rs 1,000–5,000/month at age 60 depending on contribution.", "18","40","ALL","","ALL","Labour/Worker,Self-employed,Farmer"),
+        ("PMJDY001",   "Pradhan Mantri Jan Dhan Yojana",        "Department of Financial Services",            "ALL", "Universal access to banking facilities (zero-balance accounts).", "All adults without a bank account.", "Zero-balance savings account + RuPay debit card + Rs 10,000 overdraft + accident insurance.", "18","99","ALL","","ALL",""),
+        ("PMJJBY001",  "Pradhan Mantri Jeevan Jyoti Bima Yojana", "Department of Financial Services",          "ALL", "Life insurance scheme with annual premium of Rs 330.", "Citizens aged 18-50 with a savings bank account.", "Rs 2 lakh death coverage for Rs 330/year premium.", "18","50","ALL","","ALL","Self-employed,Labour/Worker"),
+        ("PMSBY001",   "Pradhan Mantri Suraksha Bima Yojana",   "Department of Financial Services",            "ALL", "Accident insurance with annual premium of Rs 12.", "Citizens aged 18-70 with a savings bank account.", "Rs 2 lakh accidental death coverage for Rs 12/year premium.", "18","70","ALL","","ALL","Self-employed,Labour/Worker"),
+        ("APY001",     "Atal Pension Yojana",                   "Department of Financial Services",            "ALL", "Guaranteed minimum pension after 60 years (contribution-based).", "Citizens aged 18-40 working in unorganized sector.", "Guaranteed Rs 1,000-5,000/month pension after 60 based on contribution.", "18","40","ALL","","ALL","Self-employed,Labour/Worker"),
 
-        # Rural Development
-        ("PMGSY001",   "PM Gram Sadak Yojana",                 "Ministry of Rural Development",               "ALL", "All-weather road connectivity to unconnected rural habitations.", "Unconnected rural habitations with population 500+ (250+ in hilly/tribal areas).", "Construction of all-weather roads to unconnected villages.", "0","99","ALL","","ALL",""),
-        ("JJM001",     "Jal Jeevan Mission",                   "Ministry of Jal Shakti",                      "ALL", "Provide safe and adequate drinking water through household tap connections.", "Rural households without piped water supply.", "Functional household tap connection at minimum 55 LPCD.", "0","99","ALL","","ALL","BPL,Farmer,Labour/Worker"),
-        ("DDUGJY001",  "Deen Dayal Upadhyaya Gram Jyoti Yojana","Ministry of Power",                         "ALL", "Electrification of all villages and un-electrified households.", "Unelectrified rural households and villages.", "Free electricity connection for BPL households; infrastructure for all villages.", "0","99","ALL","","ALL","BPL,Farmer"),
-        ("SBM_G001",   "Swachh Bharat Mission – Gramin",       "Ministry of Jal Shakti",                      "ALL", "Accelerate sanitation coverage in rural India; eliminate open defecation.", "Rural households without toilets; focus on BPL and SC/ST families.", "Incentive of Rs 12,000 for construction of household toilet.", "0","99","ALL","","ALL","BPL,Farmer,Labour/Worker"),
+        # Entrepreneurship & Business
+        ("MUDRA001",   "Pradhan Mantri MUDRA Yojana",           "Ministry of Finance",                         "ALL", "Micro-credit loans for small businesses (up to Rs 10 lakh).", "Micro and small enterprises, self-employed individuals.", "Collateral-free loans: Shishu (up to Rs 50k), Kishore (Rs 50k-5L), Tarun (Rs 5L-10L).", "18","99","ALL","","ALL","Self-employed"),
+        ("PMEGP001",   "PM Employment Generation Programme",    "Ministry of Micro, Small & Medium Enterprises", "ALL", "Credit-linked subsidy for setting up new enterprises.", "Individuals above 18 years, SHGs, institutions. At least Class 8 pass.", "Subsidy: 15-35% of project cost; max Rs 25 lakh (manufacturing) or Rs 10 lakh (service).", "18","99","ALL","","ALL","Self-employed"),
+        ("STANDUP001", "Stand-Up India Scheme",                 "Department of Financial Services",            "ALL", "Bank loans for SC/ST and women entrepreneurs (Rs 10 lakh - Rs 1 crore).", "SC/ST and women entrepreneurs for greenfield enterprises.", "Composite loan Rs 10 lakh to Rs 1 crore for greenfield enterprises.", "18","99","ALL","","SC,ST","Self-employed"),
 
-        # Minority Welfare
-        ("SEEKHO001",  "Seekho aur Kamao",                     "Ministry of Minority Affairs",                "ALL", "Skill development scheme for youth from minority communities.", "Youth from minority communities aged 14–45 years.", "Free market-oriented skill training with placement support; stipend during training.", "14","45","ALL","","ALL","Student,Labour/Worker"),
-        ("NMDFC001",   "NMDFC Loan Scheme",                    "Ministry of Minority Affairs",                "ALL", "Concessional credit to minorities for income-generating activities.", "Minorities with annual family income below Rs 1.5 lakh (rural) or Rs 2 lakh (urban).", "Loans at 6% interest up to Rs 30 lakh through state channelising agencies.", "18","55","ALL","200000","ALL","Self-employed,Labour/Worker"),
-
-        # Digital & Technology
-        ("PMGDISHA001","PM Gramin Digital Saksharta Abhiyan",  "Ministry of Electronics and IT",              "ALL", "Make 6 crore rural households digitally literate.", "One member per rural household who is not digitally literate.", "Free digital literacy training covering internet, mobile banking, government e-services.", "14","60","ALL","","ALL",""),
-        ("CSC001",     "Common Service Centres Scheme",        "Ministry of Electronics and IT",              "ALL", "Delivery of government and private services in rural and remote areas.", "Rural citizens needing access to government services.", "Access to 300+ services: Aadhaar, PAN, banking, insurance, certificates at doorstep.", "0","99","ALL","","ALL",""),
-
-        # Self Help Groups & Women Entrepreneurship
-        ("NRLM001",    "Deendayal Antyodaya Yojana – NRLM",   "Ministry of Rural Development",               "ALL", "Alleviate rural poverty through strong institutions of poor, especially women.", "Rural poor households with focus on women; SC/ST and minority communities prioritised.", "SHG formation, revolving fund Rs 10,000–15,000, bank linkage, skill training, livelihood support.", "18","60","F","","ALL","BPL,Labour/Worker,Farmer"),
-        ("NULM001",    "Deendayal Antyodaya Yojana – NULM",   "Ministry of Housing and Urban Affairs",       "ALL", "Reduce urban poverty through self-employment and skill development.", "Urban poor including street vendors, rag pickers, construction workers.", "Skill training, credit at 7% interest, SHG support, shelter for homeless.", "18","60","ALL","","ALL","BPL,Labour/Worker,Self-employed"),
+        # Agriculture Credit & Insurance (additional)
+        ("WDRA001",    "Warehouse Development & Regulatory Authority", "Ministry of Consumer Affairs",        "ALL", "Negotiable warehouse receipts for farmers to store produce and get credit.", "Farmers storing produce in registered warehouses.", "Credit against warehouse receipts, reduced distress sales.", "18","99","ALL","","ALL","Farmer"),
 
         # Tribal Welfare
-        ("VGF001",     "Van Dhan Vikas Kendra",                "Ministry of Tribal Affairs",                  "ALL", "Creating livelihoods by value addition to Minor Forest Produce.", "Tribal gatherers and artisans in forest areas.", "Setting up 300 tribal members per VDVK for MFP processing; working capital support.", "18","65","ALL","","ST","Farmer,Labour/Worker"),
-        ("EMRS001",    "Eklavya Model Residential Schools",    "Ministry of Tribal Affairs",                  "ALL", "Quality education to tribal students in remote areas.", "ST students in sub-districts with 50%+ ST population.", "Free residential education with state-of-the-art infrastructure; Rs 1.09 lakh/student/year.", "6","18","ALL","","ST","Student"),
+        ("EGA001",     "Eklavya Model Residential Schools",     "Ministry of Tribal Affairs",                  "ALL", "Quality education for ST children in remote tribal areas.", "Tribal children in areas with 50%+ ST population or high ST concentration.", "Free boarding, lodging, and quality education (CBSE) in residential schools.", "6","18","ALL","","ST","Student"),
 
-        # MSME & Industry
-        ("ZED001",     "ZED Certification Scheme",             "Ministry of MSME",                            "ALL", "Promote Zero Defect Zero Effect manufacturing among MSMEs.", "All MSMEs in manufacturing sector.", "Subsidy up to 80% on certification cost (Rs 3 lakh for micro, Rs 5 lakh for small).", "18","99","ALL","","ALL","Self-employed"),
-        ("CGTMSE001",  "CGTMSE – Credit Guarantee Scheme",     "Ministry of MSME",                            "ALL", "Collateral-free loans to MSEs through credit guarantee cover.", "Micro and small enterprises for loans up to Rs 2 crore.", "Guarantee cover 75–85% of credit facility; no collateral required.", "18","65","ALL","","ALL","Self-employed"),
+        # Rural Infrastructure
+        ("PMGSY001",   "Pradhan Mantri Gram Sadak Yojana",      "Ministry of Rural Development",               "ALL", "All-weather road connectivity to unconnected habitations.", "Rural habitations with population 250+ (general), 100+ (hilly/tribal/desert).", "Construction/upgradation of rural roads, improved market access.", "0","99","ALL","","ALL",""),
+
+        # Sanitation & Hygiene
+        ("SBM001",     "Swachh Bharat Mission",                 "Ministry of Jal Shakti",                      "ALL", "Construction of household toilets and sanitation facilities.", "Households without toilets, especially in rural areas.", "Rs 12,000 incentive for household toilet construction.", "18","99","ALL","","ALL","BPL"),
+
+        # Digital Literacy
+        ("PMGDISHA001","PM Gramin Digital Saksharta Abhiyan",    "Ministry of Electronics and IT",              "ALL", "Digital literacy training in rural areas.", "Non-digitally literate citizens in rural households.", "Free training to operate computers, smartphones, digital payment, internet.", "14","60","ALL","","ALL",""),
     ]
-
-    rows = []
-    for (sid, name, ministry, state, desc, elig, benefits,
-         min_age, max_age, gender, income, caste, occ) in stubs:
-        rows.append({
-            "scheme_id": sid, "scheme_name": name, "ministry": ministry,
-            "state": state, "description": desc, "eligibility": elig,
-            "benefits": benefits, "min_age": min_age, "max_age": max_age,
-            "gender": gender, "income_limit_inr": income,
-            "caste_category": caste, "occupation_tags": occ,
-        })
-    df = pd.DataFrame(rows)
-    return _normalise(df)
+    df = pd.DataFrame(stubs, columns=_REQUIRED_COLS)
+    print(f"  → {len(df)} stub schemes available")
+    return df
 
 
-# ── Run loaders in priority order ─────────────────────────────────────────────
-schemes_df = None
-source_used = None
-
-for loader_name, loader_fn in [
-    ("my_gov_schemes CSV (primary)",  lambda: _load_myscheme_csv(SCHEMES_CSV_PATH)),
-    ("PDF from UC Volume",            lambda: _load_pdf(SCHEMES_PDF_PATH)),
-    ("data.gov.in open API",          _load_datagov),
-]:
-    result = loader_fn()
-    if result is not None and len(result) > 0:
-        schemes_df = result
-        source_used = loader_name
-        break
-
+# ── Master loader with fallback cascade ──────────────────────────────────────
+schemes_df = _load_myscheme_csv(SCHEMES_CSV_PATH)
+if schemes_df is None:
+    schemes_df = _load_pdf(SCHEMES_PDF_PATH)
+if schemes_df is None:
+    schemes_df = _load_datagov()
 if schemes_df is None:
     schemes_df = _hardcoded_stubs()
-    source_used = "hardcoded stubs (50 major central schemes)"
 
-print(f"\n✅ Source  : {source_used}")
-print(f"   Schemes : {len(schemes_df)}")
-display(schemes_df[["scheme_name", "ministry", "state", "gender",
-                     "caste_category", "min_age", "max_age",
-                     "income_limit_inr", "occupation_tags"]].head(10))
+if schemes_df is not None and not schemes_df.empty:
+    print(f"\n✅ Final: {len(schemes_df)} schemes loaded")
+    display(schemes_df.head(3))
+else:
+    raise RuntimeError("❌ No scheme data could be loaded from any source")
 
 # COMMAND ----------
 
