@@ -38,6 +38,10 @@ def _chat_url() -> str:
         )
     if base.endswith("/chat/completions"):
         return base
+    # Databricks workspace OpenAI-compatible base is typically .../serving-endpoints
+    # and expects .../serving-endpoints/chat/completions (no /v1 segment).
+    if base.endswith("/serving-endpoints"):
+        return f"{base}/chat/completions"
     # OpenAI SDK + AI Gateway Get code: base_url ends with …/mlflow/v1 (also ends with /v1).
     # OpenAI.com: …/v1  →  …/v1/chat/completions
     if base.endswith("/v1"):

@@ -172,13 +172,29 @@ def get_retriever() -> Retriever:
 
     Reads ``NYAYA_RETRIEVAL_BACKEND`` env var:
 
-    - ``"vector_search"`` → ``VectorSearchRetriever`` with FAISS fallback
-    - ``"faiss"`` (default) → ``FaissRetriever``
+    - ``"vector_search"`` (default) → ``VectorSearchRetriever`` with optional FAISS fallback
+    - ``"faiss"`` → ``FaissRetriever``
     """
-    backend = os.environ.get("NYAYA_RETRIEVAL_BACKEND", "faiss").strip().lower()
+    backend = os.environ.get("NYAYA_RETRIEVAL_BACKEND", "vector_search").strip().lower()
 
-    faiss_dir = _resolve_index_dir()
-    faiss_ret = FaissRetriever(faiss_dir)
+    faiss_dir: str | None = None
+    faiss_ret: FaissRetriever | None = None
+
+    def _get_faiss_retriever() -> FaissRetriever:
+        nonlocal faiss_dir, faiss_ret
+        if faiss_ret is None:
+            faiss_dir = _resolve_index_dir()
+            faiss_ret = FaissRetriever(faiss_dir)
+        return faiss_ret
+
+    def _faiss_is_available() -> bool:
+        try:
+            from nyaya_dhwani.faiss_compat import get_faiss
+            get_faiss()
+            return True
+        except Exception as e:
+            logger.info("FAISS unavailable in current runtime: %s", e)
+            return False
 
     if backend == "vector_search":
         endpoint = os.environ.get("NYAYA_VS_ENDPOINT_NAME", "").strip()
@@ -187,15 +203,47 @@ def get_retriever() -> Retriever:
             try:
                 from nyaya_dhwani.vs_retriever import VectorSearchRetriever
                 vs_ret = VectorSearchRetriever(endpoint, index_name)
-                logger.info("Using VectorSearchRetriever (endpoint=%s) with FAISS fallback", endpoint)
-                return FallbackRetriever(primary=vs_ret, fallback=faiss_ret)
+                if _faiss_is_available():
+                    faiss_ret_local = _get_faiss_retriever()
+                    logger.info("Using VectorSearchRetriever (endpoint=%s) with FAISS fallback", endpoint)
+                    return FallbackRetriever(primary=vs_ret, fallback=faiss_ret_local)
+                logger.info("Using VectorSearchRetriever (endpoint=%s) without FAISS fallback", endpoint)
+                return vs_ret
             except Exception:
-                logger.warning("Failed to init VectorSearchRetriever, using FAISS", exc_info=True)
+                logger.warning("Failed to init VectorSearchRetriever", exc_info=True)
         else:
             logger.warning(
                 "NYAYA_RETRIEVAL_BACKEND=vector_search but NYAYA_VS_ENDPOINT_NAME / "
-                "NYAYA_VS_INDEX_NAME not set — falling back to FAISS"
+                "NYAYA_VS_INDEX_NAME not set"
             )
 
-    logger.info("Using FaissRetriever (index_dir=%s)", faiss_dir)
-    return faiss_ret
+    if backend == "faiss":
+        if _faiss_is_available():
+            faiss_ret_local = _get_faiss_retriever()
+            assert faiss_dir is not None
+            logger.info("Using FaissRetriever (index_dir=%s)", faiss_dir)
+            return faiss_ret_local
+
+        endpoint = os.environ.get("NYAYA_VS_ENDPOINT_NAME", "").strip()
+        index_name = os.environ.get("NYAYA_VS_INDEX_NAME", "").strip()
+        if endpoint and index_name:
+            try:
+                from nyaya_dhwani.vs_retriever import VectorSearchRetriever
+                logger.warning(
+                    "NYAYA_RETRIEVAL_BACKEND=faiss but FAISS is unavailable; "
+                    "switching to Vector Search backend"
+                )
+                return VectorSearchRetriever(endpoint, index_name)
+            except Exception:
+                logger.warning("Vector Search fallback initialization failed", exc_info=True)
+
+        raise RuntimeError(
+            "FAISS backend is unavailable and Vector Search is not configured. "
+            "Set NYAYA_RETRIEVAL_BACKEND=vector_search and provide "
+            "NYAYA_VS_ENDPOINT_NAME + NYAYA_VS_INDEX_NAME, or run with Python 3.11/3.12 "
+            "for local FAISS."
+        )
+
+    logger.info("Unknown NYAYA_RETRIEVAL_BACKEND=%r; defaulting to vector_search semantics", backend)
+    os.environ["NYAYA_RETRIEVAL_BACKEND"] = "vector_search"
+    return get_retriever()

@@ -931,6 +931,12 @@ English, Hindi, Bengali, Telugu, Marathi, Tamil, Gujarati, Kannada, Malayalam, P
 
 def _load_secrets_from_scope() -> None:
     """Load secrets from Databricks secret scope into env vars (for Databricks Apps)."""
+    # Local runs often set only DATABRICKS_TOKEN for LLM calls. Databricks SDK
+    # requires a workspace host (or another complete auth method) for secrets APIs.
+    if os.environ.get("DATABRICKS_TOKEN", "").strip() and not os.environ.get("DATABRICKS_HOST", "").strip():
+        logger.info("Skipping secret-scope lookup: DATABRICKS_HOST is not set for SDK auth.")
+        return
+
     mapping = {
         "SARVAM_API_KEY": ("nyaya-dhwani", "sarvam_api_key"),
     }
@@ -962,7 +968,7 @@ def main() -> None:
     _load_secrets_from_scope()
     demo = build_app()
     demo.queue()
-    demo.launch()
+    demo.launch(share=True)
 
 
 if __name__ == "__main__":

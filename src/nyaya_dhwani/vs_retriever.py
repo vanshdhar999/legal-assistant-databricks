@@ -31,7 +31,15 @@ class VectorSearchRetriever:
         if self._index is not None:
             return self._index
         from databricks.sdk import WorkspaceClient
-        self._index = WorkspaceClient().vector_search_indexes
+        try:
+            self._index = WorkspaceClient().vector_search_indexes
+        except Exception as e:
+            raise RuntimeError(
+                "Failed to initialize Databricks Vector Search client. "
+                "Set DATABRICKS_HOST=https://<workspace-host> and DATABRICKS_TOKEN=<pat>, "
+                "or configure Databricks unified authentication. "
+                f"Original error: {e}"
+            ) from e
         logger.info("VectorSearchRetriever: connected to endpoint %s, index %s",
                      self._endpoint_name, self._index_name)
         return self._index
