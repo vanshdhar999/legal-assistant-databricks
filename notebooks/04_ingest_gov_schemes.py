@@ -477,6 +477,7 @@ print(f"✅ {schemes_sdf.count()} schemes written to {SCHEMES_TABLE}")
 
 # COMMAND ----------
 
+# DBTITLE 1,Untitled
 from pyspark.sql import functions as F
 from pyspark.sql.window import Window
 
@@ -487,7 +488,7 @@ schemes_sdf_text = schemes_sdf_loaded.withColumn(
     F.concat_ws(" ",
         F.coalesce(F.col("scheme_name"), F.lit("")),
         F.coalesce(F.col("description"), F.lit("")),
-        F.coalesce(F.col("eligibility_raw"), F.lit("")),
+        F.coalesce(F.col("eligibility"), F.lit("")),
         F.coalesce(F.col("benefits"), F.lit("")),
         F.coalesce(F.col("occupation_tags"), F.lit("")),
         F.coalesce(F.col("state"), F.lit("")),
@@ -557,17 +558,11 @@ print(f"✅ TF-IDF top-terms saved to {TFIDF_TABLE}")
 
 # COMMAND ----------
 
-try:
-    import mlflow
-    with mlflow.start_run(run_name="scheme_tfidf_training"):
-        mlflow.log_param("source", source_used)
-        mlflow.log_param("num_schemes", len(schemes_df))
-        mlflow.log_param("tfidf_impl", "spark_sql_dataframe")
-        mlflow.log_param("top_terms_per_scheme", 20)
-        run_id = mlflow.active_run().info.run_id
-        print(f"✅ MLflow run logged (run_id={run_id})")
-except Exception as e:
-    print(f"⚠️  MLflow logging failed (non-fatal): {e}")
+# DBTITLE 1,Cell 11
+# Skip MLflow logging on serverless compute (spark.mlflow.modelRegistryUri not available)
+# MLflow integration requires Spark config access that's restricted on serverless clusters
+print("ℹ️  MLflow logging skipped (serverless compute does not support Spark config access)")
+print(f"   Processed {len(schemes_df)} schemes with spark_sql_dataframe TF-IDF implementation")
 
 # COMMAND ----------
 
