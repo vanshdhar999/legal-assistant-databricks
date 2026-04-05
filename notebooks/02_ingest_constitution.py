@@ -1,4 +1,8 @@
 # Databricks notebook source
+# /// script
+# [tool.databricks.environment]
+# environment_version = "2"
+# ///
 # MAGIC %md
 # MAGIC # Notebook 02: Constitution of India Ingestion
 # MAGIC
@@ -53,10 +57,7 @@ import pandas as pd
 from pathlib import Path
 
 _CSV_CANDIDATES = [
-    Path(CONSTITUTION_CSV_PATH),
-    Path(REPO_ROOT) / "Constitution of India.csv",
-    Path("/Workspace") / "Constitution of India.csv",
-    Path("Constitution of India.csv"),
+    Path(CONSTITUTION_CSV_PATH),  # Volumes workspace folder
 ]
 
 def _load_constitution_csv(path: Path) -> pd.DataFrame:
