@@ -1,4 +1,4 @@
-"""Nyaya Sahayak: Gradio app — Legal Q&A + BNS Explainer + Scheme Eligibility + IPC↔BNS Compare.
+"""MULIA: Gradio app — Legal Q&A + BNS Explainer + Scheme Eligibility + IPC↔BNS Compare.
 
 Built on top of the original Nyaya Dhwani RAG assistant.
 See docs/PLAN.md and CLAUDE.md for architecture details.
@@ -152,7 +152,7 @@ DISCLAIMER_EN = (
 )
 
 SYSTEM_PROMPT = (
-    "You are Nyaya Sahayak, an assistant for Indian legal information. "
+    "You are MULIA (Multilingual Legal Information Assistant), an assistant for Indian legal information. "
     "Answer using the Context below when it is relevant. Cite Acts or sections when the context supports it. "
     "If the context is insufficient, say so briefly. "
     "Do not claim to be a lawyer. Keep answers clear and structured. "
@@ -496,30 +496,51 @@ def run_ipc_bns_compare(
 
 def build_app() -> gr.Blocks:
     custom_css = """
-    /* Light theme */
-    .gradio-container { background-color: #F7F3ED !important; }
-    footer { font-size: 0.85rem; color: #2A5297; }
-    h1 { color: #0D1B3E; font-family: Georgia, serif; }
-    .diff-box textarea { font-family: monospace !important; font-size: 0.82rem; }
-
-    /* Dark theme: respect browser/OS preference */
-    @media (prefers-color-scheme: dark) {
-        .gradio-container { background-color: #1a1a2e !important; }
-        h1 { color: #e0d8cc; }
-        footer { color: #8ea4c8; }
+    /* Cream-white justice theme */
+    .gradio-container {
+        background: linear-gradient(180deg, #FFFDF7 0%, #F8F3E7 100%) !important;
+        color: #2B2A28 !important;
     }
-    .dark .gradio-container { background-color: #1a1a2e !important; }
-    .dark h1 { color: #e0d8cc; }
-    .dark footer { color: #8ea4c8; }
+    h1, h2, h3 {
+        color: #1F2F45 !important;
+        font-family: Georgia, "Times New Roman", serif;
+        letter-spacing: 0.01em;
+    }
+    .gr-button-primary {
+        background: #8C6A2F !important;
+        border-color: #7B5E29 !important;
+        color: #FFFDF8 !important;
+    }
+    .gr-button-primary:hover {
+        background: #7B5E29 !important;
+        border-color: #6B5225 !important;
+    }
+    .gr-box, .gr-panel, .gr-form, .gradio-container .block {
+        background-color: #FFFCF4 !important;
+        border-color: #E6DDC7 !important;
+    }
+    .gr-input, .gr-textbox, textarea, input, select {
+        background-color: #FFFDF8 !important;
+        border-color: #DED3BA !important;
+    }
+    .tabs .tab-nav button.selected {
+        color: #1F2F45 !important;
+        border-bottom: 2px solid #8C6A2F !important;
+    }
+    footer {
+        font-size: 0.85rem;
+        color: #4C5C73;
+    }
+    .diff-box textarea { font-family: monospace !important; font-size: 0.82rem; }
     """
 
     with gr.Blocks(
-        theme=gr.themes.Soft(primary_hue="slate", secondary_hue="orange"),
+        theme=gr.themes.Soft(primary_hue="amber", secondary_hue="slate"),
         css=custom_css,
-        title="Nyaya Sahayak",
+        title="MULIA - Multilingual Legal Information Assistant",
     ) as demo:
         gr.Markdown(
-            "# Nyaya Sahayak · न्याय सहायक\n"
+            "# MULIA · Multilingual Legal Information Assistant\n"
             "*Governance & Access to Justice — Legal information assistant for India · "
             "Not a substitute for legal counsel*"
         )
@@ -558,7 +579,7 @@ def build_app() -> gr.Blocks:
                         value=None,
                     )
                     chatbot = gr.Chatbot(
-                        label="Nyaya Sahayak",
+                        label="MULIA",
                         height=420,
                         bubble_full_width=False,
                     )
@@ -701,7 +722,7 @@ def build_app() -> gr.Blocks:
                 # ── Tab 5: About ────────────────────────────────────────────
                 with gr.TabItem("ℹ️ About"):
                     gr.Markdown("""
-## Nyaya Sahayak · न्याय सहायक
+## MULIA · Multilingual Legal Information Assistant
 
 **Governance & Access to Justice** — making Indian law accessible to every citizen.
 
